@@ -322,34 +322,3 @@ func (h *Handler) ExecuteSchedule(c *gin.Context) {
 	c.JSON(http.StatusCreated, backup)
 }
 
-// Alert handlers
-func (h *Handler) GetAlerts(c *gin.Context) {
-	var alerts []models.Alert
-	database.DB.Order("created_at DESC").Limit(50).Find(&alerts)
-	c.JSON(http.StatusOK, alerts)
-}
-
-func (h *Handler) MarkAlertAsRead(c *gin.Context) {
-	id := c.Param("id")
-	var alert models.Alert
-	if err := database.DB.First(&alert, "id = ?", id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Alert not found"})
-		return
-	}
-
-	alert.Read = true
-	database.DB.Save(&alert)
-	c.JSON(http.StatusOK, alert)
-}
-
-func (h *Handler) MarkAllAlertsAsRead(c *gin.Context) {
-	database.DB.Model(&models.Alert{}).Where("read = ?", false).Update("read", true)
-	c.JSON(http.StatusOK, gin.H{"message": "All alerts marked as read"})
-}
-
-func (h *Handler) GetUnreadCount(c *gin.Context) {
-	var count int64
-	database.DB.Model(&models.Alert{}).Where("read = ?", false).Count(&count)
-	c.JSON(http.StatusOK, gin.H{"count": count})
-}
-

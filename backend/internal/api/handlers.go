@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"safebase-backend/internal/database"
@@ -191,29 +190,13 @@ func (h *Handler) CreateManualBackup(c *gin.Context) {
 	}
 
 	backup, err := h.scheduler.BackupExec.ExecuteBackup(db, "")
-	
-	backup.Type = "manual"
-	database.DB.Create(&backup)
-	
 	if err != nil {
-		// Create error alert
-		database.CreateAlert(
-			"error",
-			"Échec de sauvegarde manuelle",
-			fmt.Sprintf("La sauvegarde manuelle de %s a échoué: %s", db.Name, err.Error()),
-			db.Name,
-		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Create success alert
-	database.CreateAlert(
-		"success",
-		"Sauvegarde manuelle réussie",
-		fmt.Sprintf("La sauvegarde manuelle de %s a été effectuée avec succès (%s)", db.Name, backup.Size),
-		db.Name,
-	)
+	backup.Type = "manual"
+	database.DB.Create(&backup)
 
 	now := time.Now()
 	db.LastBackup = &now
@@ -223,7 +206,59 @@ func (h *Handler) CreateManualBackup(c *gin.Context) {
 	c.JSON(http.StatusCreated, backup)
 }
 
-// Alert handlers
+func (h *Handler) ExecuteSchedule(c *gin.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		}
+	}()
+
+	id := c.Param("id")
+	var schedule models.BackupSchedule
+	if err := database.DB.First(&schedule, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Schedule not found"})
+		return
+	}
+
+	var db models.Database
+	if err := database.DB.First(&db, "id = ?", schedule.DatabaseID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Database not found"})
+		return
+	}
+
+	backup, err := h.scheduler.BackupExec.ExecuteBackup(db, schedule.ID)
+	
+	if err != nil {
+		backup.Type = "scheduled"
+		database.DB.Create(&backup)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "backup": backup})
+		return
+	}
+
+	if err := database.DB.Create(&backup).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save backup: " + err.Error()})
+		return
+	}
+
+	now := time.Now()
+	database.UpdateScheduleLastRun(schedule.ID, now)
+	
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("Panic in CalculateAndUpdateNextRun: %v", r)
+			}
+		}()
+		h.scheduler.CalculateAndUpdateNextRun(schedule)
+	}()
+
+	db.LastBackup = &now
+	db.BackupCount++
+	database.DB.Save(&db)
+
+	c.JSON(http.StatusCreated, backup)
+}
+
 func (h *Handler) GetAlerts(c *gin.Context) {
 	var alerts []models.Alert
 	database.DB.Order("created_at DESC").Limit(50).Find(&alerts)
@@ -252,73 +287,5 @@ func (h *Handler) GetUnreadCount(c *gin.Context) {
 	var count int64
 	database.DB.Model(&models.Alert{}).Where("read = ?", false).Count(&count)
 	c.JSON(http.StatusOK, gin.H{"count": count})
-}
-
-func (h *Handler) ExecuteSchedule(c *gin.Context) {
-	defer func() {
-		if r := recover(); r != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-		}
-	}()
-
-	id := c.Param("id")
-	var schedule models.BackupSchedule
-	if err := database.DB.First(&schedule, "id = ?", id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Schedule not found"})
-		return
-	}
-
-	var db models.Database
-	if err := database.DB.First(&db, "id = ?", schedule.DatabaseID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Database not found"})
-		return
-	}
-
-	backup, err := h.scheduler.BackupExec.ExecuteBackup(db, schedule.ID)
-	
-	backup.Type = "scheduled"
-	if err != nil {
-		database.DB.Create(&backup)
-		// Create error alert
-		database.CreateAlert(
-			"error",
-			"Échec de sauvegarde planifiée",
-			fmt.Sprintf("La sauvegarde planifiée de %s a échoué: %s", db.Name, err.Error()),
-			db.Name,
-		)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "backup": backup})
-		return
-	}
-
-	if err := database.DB.Create(&backup).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save backup: " + err.Error()})
-		return
-	}
-
-	// Create success alert
-	database.CreateAlert(
-		"success",
-		"Sauvegarde planifiée réussie",
-		fmt.Sprintf("La sauvegarde planifiée de %s a été effectuée avec succès (%s)", db.Name, backup.Size),
-		db.Name,
-	)
-
-	now := time.Now()
-	database.UpdateScheduleLastRun(schedule.ID, now)
-	
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("Panic in CalculateAndUpdateNextRun: %v", r)
-			}
-		}()
-		h.scheduler.CalculateAndUpdateNextRun(schedule)
-	}()
-
-	db.LastBackup = &now
-	db.BackupCount++
-	database.DB.Save(&db)
-
-	c.JSON(http.StatusCreated, backup)
 }
 

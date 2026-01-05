@@ -13,7 +13,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [unreadCount] = useState(3);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -23,6 +23,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
   useEffect(() => {
     loadCurrentUser();
+    loadUnreadCount();
+    
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadCurrentUser = async () => {
@@ -31,6 +36,15 @@ export default function Header({ onMenuClick }: HeaderProps) {
       setUser(userData);
     } catch (error) {
       console.error('Failed to load user:', error);
+    }
+  };
+
+  const loadUnreadCount = async () => {
+    try {
+      const data = await api.alerts.getUnreadCount();
+      setUnreadCount(data.count);
+    } catch (error) {
+      console.error('Failed to load unread count:', error);
     }
   };
 
@@ -126,7 +140,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
       </header>
 
       {showNotifications && (
-        <NotificationPanel onClose={() => setShowNotifications(false)} />
+        <NotificationPanel 
+          onClose={() => setShowNotifications(false)} 
+          onUnreadCountChange={(count) => setUnreadCount(count)}
+        />
       )}
     </>
   );

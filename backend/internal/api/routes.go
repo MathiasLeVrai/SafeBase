@@ -44,11 +44,16 @@ func SetupRoutes(handler *Handler) *gin.Engine {
 			protected.DELETE("/schedules/:id", handler.DeleteSchedule)
 			protected.POST("/schedules/:id/execute", handler.ExecuteSchedule)
 
-			protected.GET("/backups", handler.GetBackups)
-			protected.GET("/backups/:id", handler.GetBackup)
-			protected.POST("/backups/manual", handler.CreateManualBackup)
-		}
+		protected.GET("/backups", handler.GetBackups)
+		protected.GET("/backups/:id", handler.GetBackup)
+		protected.POST("/backups/manual", handler.CreateManualBackup)
+
+		protected.GET("/alerts", handler.GetAlerts)
+		protected.PUT("/alerts/:id/read", handler.MarkAlertAsRead)
+		protected.POST("/alerts/mark-all-read", handler.MarkAllAlertsAsRead)
+		protected.GET("/alerts/unread-count", handler.GetUnreadCount)
 	}
+}
 
 	return r
 }

@@ -127,5 +127,16 @@ export const api = {
       body: JSON.stringify({ databaseId }),
     }),
   },
+
+  alerts: {
+    getAll: () => fetchAPI<any[]>('/alerts'),
+    markAsRead: (id: string) => fetchAPI<any>(`/alerts/${id}/read`, {
+      method: 'PUT',
+    }),
+    markAllAsRead: () => fetchAPI<{ message: string }>('/alerts/mark-all-read', {
+      method: 'POST',
+    }),
+    getUnreadCount: () => fetchAPI<{ count: number }>('/alerts/unread-count'),
+  },
 };
 

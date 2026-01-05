@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"safebase-backend/internal/database"
@@ -190,13 +191,29 @@ func (h *Handler) CreateManualBackup(c *gin.Context) {
 	}
 
 	backup, err := h.scheduler.BackupExec.ExecuteBackup(db, "")
+	
+	backup.Type = "manual"
+	database.DB.Create(&backup)
+	
 	if err != nil {
+		// Create error alert
+		database.CreateAlert(
+			"error",
+			"Échec de sauvegarde manuelle",
+			fmt.Sprintf("La sauvegarde manuelle de %s a échoué: %s", db.Name, err.Error()),
+			db.Name,
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	backup.Type = "manual"
-	database.DB.Create(&backup)
+	// Create success alert
+	database.CreateAlert(
+		"success",
+		"Sauvegarde manuelle réussie",
+		fmt.Sprintf("La sauvegarde manuelle de %s a été effectuée avec succès (%s)", db.Name, backup.Size),
+		db.Name,
+	)
 
 	now := time.Now()
 	db.LastBackup = &now
@@ -204,6 +221,37 @@ func (h *Handler) CreateManualBackup(c *gin.Context) {
 	database.DB.Save(&db)
 
 	c.JSON(http.StatusCreated, backup)
+}
+
+// Alert handlers
+func (h *Handler) GetAlerts(c *gin.Context) {
+	var alerts []models.Alert
+	database.DB.Order("created_at DESC").Limit(50).Find(&alerts)
+	c.JSON(http.StatusOK, alerts)
+}
+
+func (h *Handler) MarkAlertAsRead(c *gin.Context) {
+	id := c.Param("id")
+	var alert models.Alert
+	if err := database.DB.First(&alert, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Alert not found"})
+		return
+	}
+
+	alert.Read = true
+	database.DB.Save(&alert)
+	c.JSON(http.StatusOK, alert)
+}
+
+func (h *Handler) MarkAllAlertsAsRead(c *gin.Context) {
+	database.DB.Model(&models.Alert{}).Where("read = ?", false).Update("read", true)
+	c.JSON(http.StatusOK, gin.H{"message": "All alerts marked as read"})
+}
+
+func (h *Handler) GetUnreadCount(c *gin.Context) {
+	var count int64
+	database.DB.Model(&models.Alert{}).Where("read = ?", false).Count(&count)
+	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
 func (h *Handler) ExecuteSchedule(c *gin.Context) {
@@ -228,9 +276,16 @@ func (h *Handler) ExecuteSchedule(c *gin.Context) {
 
 	backup, err := h.scheduler.BackupExec.ExecuteBackup(db, schedule.ID)
 	
+	backup.Type = "scheduled"
 	if err != nil {
-		backup.Type = "scheduled"
 		database.DB.Create(&backup)
+		// Create error alert
+		database.CreateAlert(
+			"error",
+			"Échec de sauvegarde planifiée",
+			fmt.Sprintf("La sauvegarde planifiée de %s a échoué: %s", db.Name, err.Error()),
+			db.Name,
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "backup": backup})
 		return
 	}
@@ -239,6 +294,14 @@ func (h *Handler) ExecuteSchedule(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save backup: " + err.Error()})
 		return
 	}
+
+	// Create success alert
+	database.CreateAlert(
+		"success",
+		"Sauvegarde planifiée réussie",
+		fmt.Sprintf("La sauvegarde planifiée de %s a été effectuée avec succès (%s)", db.Name, backup.Size),
+		db.Name,
+	)
 
 	now := time.Now()
 	database.UpdateScheduleLastRun(schedule.ID, now)
@@ -257,5 +320,36 @@ func (h *Handler) ExecuteSchedule(c *gin.Context) {
 	database.DB.Save(&db)
 
 	c.JSON(http.StatusCreated, backup)
+}
+
+// Alert handlers
+func (h *Handler) GetAlerts(c *gin.Context) {
+	var alerts []models.Alert
+	database.DB.Order("created_at DESC").Limit(50).Find(&alerts)
+	c.JSON(http.StatusOK, alerts)
+}
+
+func (h *Handler) MarkAlertAsRead(c *gin.Context) {
+	id := c.Param("id")
+	var alert models.Alert
+	if err := database.DB.First(&alert, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Alert not found"})
+		return
+	}
+
+	alert.Read = true
+	database.DB.Save(&alert)
+	c.JSON(http.StatusOK, alert)
+}
+
+func (h *Handler) MarkAllAlertsAsRead(c *gin.Context) {
+	database.DB.Model(&models.Alert{}).Where("read = ?", false).Update("read", true)
+	c.JSON(http.StatusOK, gin.H{"message": "All alerts marked as read"})
+}
+
+func (h *Handler) GetUnreadCount(c *gin.Context) {
+	var count int64
+	database.DB.Model(&models.Alert{}).Where("read = ?", false).Count(&count)
+	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 

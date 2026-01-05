@@ -56,3 +56,13 @@ type Backup struct {
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
+type Alert struct {
+	ID           string    `gorm:"primaryKey" json:"id"`
+	Type         string    `gorm:"not null" json:"type"` // error, warning, success, info
+	Title        string    `gorm:"not null" json:"title"`
+	Message      string    `gorm:"not null" json:"message"`
+	DatabaseName string    `json:"databaseName,omitempty"`
+	Read         bool      `gorm:"default:false" json:"read"`
+	CreatedAt    time.Time `json:"timestamp"`
+}
+

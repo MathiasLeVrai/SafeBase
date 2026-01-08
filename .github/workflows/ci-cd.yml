@@ -138,10 +138,10 @@ jobs:
       - name: Send notification
         run: |
           if [ "${{ needs.build-and-push.result }}" == "success" ]; then
-            STATUS="✅ SUCCÈS"
+            STATUS=" SUCCÈS"
             COLOR="green"
           else
-            STATUS="❌ ÉCHEC"
+            STATUS=" ÉCHEC"
             COLOR="red"
           fi
 

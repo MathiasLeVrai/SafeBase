@@ -268,15 +268,6 @@ Le backend utilise ces variables (définies dans docker-compose.yml) :
 - `BACKUP_DIR` : Dossier des sauvegardes
 - `JWT_SECRET` : Secret pour les tokens JWT (à changer en prod !)
 
-## Sécurité
-
-En production :
-
-- Changer le `JWT_SECRET` dans docker-compose.yml ou .env
-- Utiliser HTTPS (reverse proxy type Nginx ou Traefik)
-- Mots de passe forts pour les bases
-- Sauvegarder régulièrement les volumes Docker
-
 ## Volumes Docker
 
 Les données persistantes sont dans des volumes :

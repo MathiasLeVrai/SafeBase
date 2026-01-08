@@ -1,0 +1,52 @@
+# docker-compose.override.yml.example
+# 
+# Ce fichier montre comment personnaliser votre configuration Docker.
+# Copiez ce fichier en docker-compose.override.yml et modifiez selon vos besoins.
+#
+# Les overrides sont automatiquement appliqués par Docker Compose.
+
+version: '3.8'
+
+services:
+  # Personnalisation du backend
+  backend:
+    environment:
+      # Changez le secret JWT en production
+      - JWT_SECRET=votre-secret-super-securise-ici
+    # Montage optionnel d'un fichier de config local
+    # volumes:
+    #   - ./backend/config.yaml:/app/config.yaml
+
+  # Personnalisation des ports (si conflit)
+  frontend:
+    ports:
+      - "8080:80"  # Change le port frontend de 3000 à 8080
+
+  mysql:
+    # ports:
+    #   - "3307:3306"  # Change le port MySQL si 3306 est utilisé
+    environment:
+      # Personnaliser les identifiants MySQL
+      MYSQL_ROOT_PASSWORD: mon_mot_de_passe_root
+      MYSQL_DATABASE: ma_base
+      MYSQL_USER: mon_utilisateur
+      MYSQL_PASSWORD: mon_mot_de_passe
+
+  postgresql:
+    # ports:
+    #   - "5434:5432"  # Change le port PostgreSQL si nécessaire
+    environment:
+      # Personnaliser les identifiants PostgreSQL
+      POSTGRES_USER: mon_utilisateur
+      POSTGRES_PASSWORD: mon_mot_de_passe
+      POSTGRES_DB: ma_base
+
+# Volumes supplémentaires pour backups externes
+# volumes:
+#   external_backups:
+#     driver: local
+#     driver_opts:
+#       type: none
+#       device: /chemin/vers/vos/backups
+#       o: bind
+

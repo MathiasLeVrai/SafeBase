@@ -1,17 +1,59 @@
-version: '3.8'
-
 services:
+  # Backend Go API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: safebase-backend
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - DB_PATH=/app/data/safebase.db
+      - BACKUP_DIR=/app/backups
+      - JWT_SECRET=${JWT_SECRET:-change-this-secret-key-in-production}
+    volumes:
+      - backend_data:/app/data
+      - backend_backups:/app/backups
+    networks:
+      - safebase-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      postgresql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend React + Nginx
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "3000:80"
+      args:
+        - VITE_API_URL=/api
     container_name: safebase-frontend
     restart: unless-stopped
+    ports:
+      - "3000:80"
     networks:
       - safebase-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
+  # MySQL de test
   mysql:
     image: mysql:8.0
     container_name: safebase-mysql
@@ -28,11 +70,22 @@ services:
     networks:
       - safebase-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-prootpassword",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # PostgreSQL de test
   postgresql:
     image: postgres:15
     container_name: safebase-postgres
@@ -42,7 +95,7 @@ services:
       POSTGRES_PASSWORD: testpass
       POSTGRES_DB: testdb
     ports:
-      - "5432:5432"
+      - "5433:5432"  # Port externe 5433 pour éviter les conflits
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -56,6 +109,8 @@ services:
 volumes:
   mysql_data:
   postgres_data:
+  backend_data:
+  backend_backups:
 
 networks:
   safebase-network:

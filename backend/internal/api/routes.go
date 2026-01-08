@@ -14,6 +14,14 @@ func SetupRoutes(handler *Handler) *gin.Engine {
 	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
 	r.Use(cors.New(config))
 
+	// Health check endpoint (no authentication)
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status": "ok",
+			"service": "safebase-backend",
+		})
+	})
+
 	api := r.Group("/api")
 	{
 		// Public routes (no authentication required)

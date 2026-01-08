@@ -17,6 +17,23 @@ export default function AddDatabaseModal({ onClose, onSuccess }: AddDatabaseModa
     password: '',
     database: '',
   });
+
+  // Exemples selon le type de base de données
+  const getPlaceholders = () => {
+    if (formData.type === 'mysql') {
+      return {
+        host: 'mysql (Docker) ou host.docker.internal',
+        database: 'testdb',
+        username: 'testuser',
+      };
+    } else {
+      return {
+        host: 'postgresql (Docker) ou host.docker.internal',
+        database: 'testdb',
+        username: 'testuser',
+      };
+    }
+  };
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,10 +53,20 @@ export default function AddDatabaseModal({ onClose, onSuccess }: AddDatabaseModa
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'port' ? parseInt(value) : value,
-    }));
+    
+    // Mise à jour du port par défaut lors du changement de type
+    if (name === 'type') {
+      setFormData(prev => ({
+        ...prev,
+        type: value,
+        port: value === 'mysql' ? 3306 : 5432,
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: name === 'port' ? parseInt(value) : value,
+      }));
+    }
   };
 
   return (
@@ -74,6 +101,27 @@ export default function AddDatabaseModal({ onClose, onSuccess }: AddDatabaseModa
           </div>
 
           <form onSubmit={handleSubmit} className="p-6">
+            {/* Info Docker */}
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex gap-3">
+                <div className="flex-shrink-0">
+                  <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-blue-900 mb-1">
+                    🐳 Configuration Docker
+                  </h3>
+                  <p className="text-sm text-blue-700">
+                    Pour les BDD incluses dans Docker : utilisez <code className="bg-blue-100 px-1.5 py-0.5 rounded font-mono text-xs">mysql</code> ou <code className="bg-blue-100 px-1.5 py-0.5 rounded font-mono text-xs">postgresql</code> comme hôte.
+                    <br />
+                    Pour les BDD sur votre machine : utilisez <code className="bg-blue-100 px-1.5 py-0.5 rounded font-mono text-xs">host.docker.internal</code>
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -115,10 +163,13 @@ export default function AddDatabaseModal({ onClose, onSuccess }: AddDatabaseModa
                     name="host"
                     value={formData.host}
                     onChange={handleChange}
-                    placeholder="localhost ou 192.168.1.10"
+                    placeholder={getPlaceholders().host}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     required
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    💡 Dans Docker, utilisez le nom du service (ex: mysql, postgresql)
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -144,7 +195,7 @@ export default function AddDatabaseModal({ onClose, onSuccess }: AddDatabaseModa
                   name="database"
                   value={formData.database}
                   onChange={handleChange}
-                  placeholder="ex: production"
+                  placeholder={getPlaceholders().database}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   required
                 />
@@ -159,7 +210,7 @@ export default function AddDatabaseModal({ onClose, onSuccess }: AddDatabaseModa
                   name="username"
                   value={formData.username}
                   onChange={handleChange}
-                  placeholder="ex: admin"
+                  placeholder={getPlaceholders().username}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   required
                 />

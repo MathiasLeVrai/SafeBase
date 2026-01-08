@@ -9,9 +9,9 @@ export const authToken = {
 
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = authToken.get();
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options?.headers,
+    ...(options?.headers as Record<string, string> || {}),
   };
 
   if (token) {

@@ -1,0 +1,37 @@
+# Binaries
+server
+main
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test files
+*_test.go
+*.test
+
+# Development files
+.env
+.env.local
+*.log
+.DS_Store
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+
+# Backups and database (will be in volumes)
+backups/
+safebase.db
+*.db
+
+# Documentation
+*.md
+!README.md
+

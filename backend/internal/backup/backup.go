@@ -99,9 +99,11 @@ func (be *BackupExecutor) backupMySQL(db models.Database) (string, error) {
 	mysqldumpPath := findCommand("mysqldump")
 	
 	host := db.Host
+	// In Docker, use service name directly; for localhost, convert to 127.0.0.1
 	if host == "localhost" {
 		host = "127.0.0.1"
 	}
+	// Note: In Docker Compose, use service name "mysql" instead of localhost
 	
 	cmd := exec.Command(mysqldumpPath,
 		"-h", host,
@@ -144,9 +146,12 @@ func (be *BackupExecutor) backupPostgreSQL(db models.Database) (string, error) {
 	var cmd *exec.Cmd
 	var stderr bytes.Buffer
 
+	// Check if we're in Docker and host is localhost - try docker exec first
+	// Otherwise, use pg_dump directly (works for Docker service names and external hosts)
 	if db.Host == "localhost" || db.Host == "127.0.0.1" {
+		// Try docker exec first (for local development outside Docker)
 		containerPath := "/tmp/" + fileName
-		cmd = exec.Command("docker", "exec",
+		dockerCmd := exec.Command("docker", "exec",
 			"-e", fmt.Sprintf("PGPASSWORD=%s", db.Password),
 			"safebase-postgres",
 			"pg_dump",
@@ -155,37 +160,42 @@ func (be *BackupExecutor) backupPostgreSQL(db models.Database) (string, error) {
 			"-F", "c",
 			"-f", containerPath,
 		)
-		cmd.Stderr = &stderr
-		err := cmd.Run()
-		if err != nil {
-			return "", fmt.Errorf("pg_dump (docker) failed: %v, stderr: %s", err, stderr.String())
+		dockerCmd.Stderr = &stderr
+		
+		if err := dockerCmd.Run(); err == nil {
+			// Docker exec succeeded, copy the file
+			cpCmd := exec.Command("docker", "cp", "safebase-postgres:"+containerPath, filePath)
+			if err := cpCmd.Run(); err != nil {
+				return "", fmt.Errorf("failed to copy backup from container: %v", err)
+			}
+			exec.Command("docker", "exec", "safebase-postgres", "rm", containerPath).Run()
+			return filePath, nil
 		}
+		// Docker exec failed, fall through to use pg_dump directly
+	}
 
-		cmd = exec.Command("docker", "cp", "safebase-postgres:"+containerPath, filePath)
-		err = cmd.Run()
-		if err != nil {
-			return "", fmt.Errorf("failed to copy backup from container: %v", err)
-		}
+	// Use pg_dump directly (works in Docker with service names like "postgresql" or external hosts)
+	pgDumpPath := findCommand("pg_dump")
+	host := db.Host
+	if host == "localhost" {
+		host = "127.0.0.1"
+	}
+	
+	cmd = exec.Command(pgDumpPath,
+		"-h", host,
+		"-p", fmt.Sprintf("%d", db.Port),
+		"-U", db.Username,
+		"-d", db.Database,
+		"-F", "c",
+		"-f", filePath,
+	)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", db.Password))
+	cmd.Stderr = &stderr
 
-		exec.Command("docker", "exec", "safebase-postgres", "rm", containerPath).Run()
-	} else {
-		pgDumpPath := findCommand("pg_dump")
-		cmd = exec.Command(pgDumpPath,
-			"-h", db.Host,
-			"-p", fmt.Sprintf("%d", db.Port),
-			"-U", db.Username,
-			"-d", db.Database,
-			"-F", "c",
-			"-f", filePath,
-		)
-		cmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", db.Password))
-		cmd.Stderr = &stderr
-
-		err := cmd.Run()
-		if err != nil {
-			os.Remove(filePath)
-			return "", fmt.Errorf("pg_dump failed: %v, stderr: %s", err, stderr.String())
-		}
+	err := cmd.Run()
+	if err != nil {
+		os.Remove(filePath)
+		return "", fmt.Errorf("pg_dump failed: %v, stderr: %s", err, stderr.String())
 	}
 
 	return filePath, nil

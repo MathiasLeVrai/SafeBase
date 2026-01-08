@@ -1,32 +1,67 @@
+# Dépendances
+node_modules/
+backend/vendor/
+
+# Build
+dist/
+build/
+backend/server
+backend/main
+backend/cmd/server/server
+
+# Environnement
+.env
+.env.local
+.env.*.local
+.env.prod
+env.prod
+
+# Base de données et backups
+*.db
+*.db-shm
+*.db-wal
+backend/safebase.db
+backend/backups/*.sql
+backend/backups/*.dump
+volume-backups/
+
 # Logs
-logs
 *.log
+backend/*.log
+debug.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.cursor/
+*.code-workspace
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# OS
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+Thumbs.db
+*.tmp
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Test
+coverage/
+*.test
+.nyc_output/
 
+# Docker temporaire
+.docker/
+
+# Binaires Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Autres
+*.bak
+*.orig
+*~
